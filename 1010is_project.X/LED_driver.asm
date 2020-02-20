@@ -15,6 +15,7 @@ _RED		res 1
 _BLUE		res 1
 _byte		res 1
 _PIXELDATA	res 3
+loopcount	res 1
 	
 	
 LEDs	code
@@ -25,51 +26,84 @@ LED_Setup
 	clrf	TRISH ;// +1
 	clrf	PORTH ;// +1
 	bcf	PORTE, 0  ;//+1 ; READY PIN E0 FOR OUTPUT
-	;call	CLEAR_pixeldata
-	;call	Output_GRB
-	call	RESET_pixeldata
+	call	CLEAR_pixeldata
+	call	write_states
 	call	Output_GRB
 	return
 	
-	
-	
-RESET_pixeldata
-	banksel	_PIXELDATA
-	;movff	POSTINC0, _PIXELDATA+0
-	;movff	POSTINC0, _PIXELDATA+1
-	;movff	POSTINC0, _PIXELDATA+2
-	movlw	.60 ;//+ 1 ;value of 50/255
-	movwf	_PIXELDATA+0 ;//+1
-	movlw	.220 ;//+ 1 ;value of 50/255
-	movwf	_PIXELDATA+1 ;//+1
-	movlw	.20 ;//+ 1 ;value of 50/255
-	movwf	_PIXELDATA+2 ;//+1
+write_states
+	LFSR	FSR0, 0x100
+	movlw	.35
+	movwf	loopcount
+loop3	call	send_red
+	call	send_blue
+	;decfsz	numLEDs
+	decfsz	loopcount
+	goto	loop3
+	return	
+send_red
+	movlw	0xF0 ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0xFF;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0x00 ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	return
+send_blue
+	movlw	0x00 ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0x00;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0xFF ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
 	return
 	
+	
 CLEAR_pixeldata
-	banksel	_PIXELDATA
-	movlw	b'00000000' ;//+ 1 ;value of 50/255
-	movwf	_PIXELDATA+0 ;//+1
-	movlw	b'00000000' ;//+ 1 ;value of 50/255
-	movwf	_PIXELDATA+1 ;//+1
-	movlw	b'00000000' ;//+ 1 ;value of 50/255
-	movwf	_PIXELDATA+2 ;//+1
-	return 
+	LFSR	FSR0, 0x100
+	movlw	.70
+	movwf	pixelcount
+loop4	call	send_blank
+	;decfsz	numLEDs
+	decfsz	pixelcount
+	goto	loop4
+	return
+send_blank
+	movlw	0x00 ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0x00;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0x00 ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	return
 
 Output_GRB
-	movlw	.70 ;// RESET PIXEL COUNT
-	movwf	pixelcount
+	LFSR	FSR0, 0x100
+	movlw	.210 ;// RESET BYTE COUNT
+	movwf	bytecount, 0
 	bcf	INTCON,GIE ;// +1 ;disable interrupts 
 loop1	
-	call	send_pixel ;// +1 ; move to loop - send all data
-	decfsz	pixelcount
+	movff	POSTINC0, _byte
+	call	send_byte
+	decfsz	bytecount, 1
 	bra	loop1
 	call	delay_rst  ;// +2 ; refresh flag
 	bsf	INTCON,GIE ;// +1 ; (*) re-enable interrupts
-	return	    
-
-
-
+	return
+send_byte
+	movlw	.8
+	movwf	bitcount ;reset bit counter
+loop5
+	BTFSC	_byte, 7 ; check MSB of working byte
+	bra	no_skip		; if 1 - send 1
+	call	Send_0		; if 0 - send 0
+	bra	skip
+no_skip	call	Send_1
+skip	RLNCF	_byte, 1	; then rotate the working byte (load next bit)
+	movff	_byte, PORTH
+	decfsz	bitcount, 1, 0	; decrement bit counter
+	goto	loop5	; if bit counter is not zero then loop
+	return
 Send_1
 	; 0.8us HI, 0.45us LO 
 	; 20 instructions TOTAL (after bsf)
@@ -81,7 +115,6 @@ Send_1
 	NOP
 	NOP
 	return
-	
 Send_0
 	; 0.4us HI, 0.85us LO 
 	; 20 instructions TOTAL (after bsf)
@@ -93,22 +126,22 @@ Send_0
 	
 	
 
-send_pixel
-	movlw	.24	   ;// +1 ; reset bit counter
-	movwf	bitcount   ;// +1
-loop2	btfsc	_PIXELDATA+0, 7 ; check MSB of working byte
-	bra	no_skip		; if 1 - send 1
-	call	Send_0		; if 0 - send 0
-	bra	skip
-no_skip	call	Send_1
-skip	; then rotate the working byte (load next bit)
-	bcf	STATUS, C
-	rlcf	_PIXELDATA+0 
-	rlcf	_PIXELDATA+1
-	rlcf	_PIXELDATA+2 
-	decfsz	bitcount	; decrement bit counter
-	goto	loop2	; if bit counter is not zero then loop
-	return   ;// + 2 ; send byte
+;send_pixel
+;	movlw	.24	   ;// +1 ; reset bit counter
+;	movwf	bitcount   ;// +1
+;loop2	btfsc	_PIXELDATA+0, 7 ; check MSB of working byte
+;	bra	no_skip		; if 1 - send 1
+;	call	Send_0		; if 0 - send 0
+;	bra	skip
+;no_skip	call	Send_1
+;skip	; then rotate the working byte (load next bit)
+;	bcf	STATUS, C
+;	rlcf	_PIXELDATA+0 
+;	rlcf	_PIXELDATA+1
+;	rlcf	_PIXELDATA+2 
+;	decfsz	bitcount	; decrement bit counter
+;	goto	loop2	; if bit counter is not zero then loop
+;	return   ;// + 2 ; send byte
 
 		
 ;send_byte	
@@ -118,7 +151,6 @@ skip	; then rotate the working byte (load next bit)
 ;	bra	skip
 ;no_skip	call	Send_1
 ;skip	rlncf	_byte, 1	; then rotate the working byte (load next bit)
-;	;movff	_byte, PORTH
 ;	decfsz	bitcount	; decrement bit counter
 ;	goto	send_byte	; if bit counter is not zero then loop
 ;	return
