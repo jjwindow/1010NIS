@@ -6,6 +6,7 @@
 acs2	udata_acs 0x20
 
 ball_VEL    res 1
+workingVEL  res 1
 ball_POS    res 1
 ball_DIR    res 1
 poscount    res 1
@@ -24,33 +25,34 @@ Game_setup
 	CLRF	P1_score
 	CLRF	P2_score
 reset_state
-	movlw	.5
+	movlw	.65
 	movwf	ball_POS
 	movlw	b'10000000'
 	movwf	ball_VEL
-	movwf	ball_DIR
+	BCF	ball_DIR, 7 ;NEG INITIAL
 	return
 	
 ;------------------------------CALCULATE GAME STATE-----------------------------
 Calculate_state
 	movlw	.0
 	movwf	movecount   ;initially set the movecount to zero
+	movff	ball_VEL, workingVEL
 Check_Magnitude
 	incf	movecount	    ;increment movecount
-	BTFSC	ball_VEL, 7	    ;check current bit of velocity
+	BTFSC	workingVEL, 7	    ;check current bit of velocity
 	bra	Check_Direction	    ;if NOT CLEAR (i.e. the 1 has been found) - then Update Position based on movecount
-	rlcf	ball_VEL, 1	    ;load next bit
+	rlcf	workingVEL, 1	    ;load next bit
 	goto	Check_Magnitude	    ;loop again, check next bit
 Check_Direction
 	BTFSC	ball_DIR, 7
 	bra	Positive	    ; MSB = 1 - direction is POSITIVE
 	bra	Negative	    ; MSB = 0 - direction is NEGATIVE
 Positive ;add movecount to POS
-	movff	movecount, W
+	movff	movecount, WREG
 	addwf	ball_POS
 	bra	check_G1
 Negative ;subtract movecount from POS
-	movff	movecount, W
+	movff	movecount, WREG
 	subwf	ball_POS
 	bra	check_G1
 check_G1 ; here we need to check if the new position is in the first foal
@@ -89,7 +91,7 @@ loop3
 	call	send_blank  ; if ball is not here - send blank
 	bra	checks
 BALL	
-	call	send_red    ; send red pixel for the ball pixel
+	call	send_red   ; send red pixel for the ball pixel
 checks
 	decf	pixelcount
 	decf	poscount
@@ -107,6 +109,10 @@ writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
 	subwf	pixelcount
 	subwf	poscount
 	return
+
+	
+	
+;------------------------------COLOUR CODES -------------------------------	
 send_red
 	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
@@ -139,15 +145,13 @@ send_yellow
 	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
 	return
-	
-CLEAR_pixeldata
-	LFSR	FSR0, 0x100
-	movlw	.70
-	movwf	pixelcount
-loop4	call	send_blank
-	;decfsz	numLEDs
-	decfsz	pixelcount
-	goto	loop4
+send_pink
+	movlw	0x00 ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0xFF;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0xDC ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
 	return
 send_blank
 	movlw	0x00 ;//+ 1 ;value of 50/255
@@ -157,7 +161,18 @@ send_blank
 	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
 	return	
+	
 
+;--------------------CLEAR PIXEL DATA------------------------------------
+CLEAR_pixeldata
+	LFSR	FSR0, 0x100
+	movlw	.70
+	movwf	pixelcount
+loop4	call	send_blank
+	;decfsz	numLEDs
+	decfsz	pixelcount
+	goto	loop4
+	return
 
 ;Write_state
 ;	LFSR	FSR0, 0x100
