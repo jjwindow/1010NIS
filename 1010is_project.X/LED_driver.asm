@@ -2,18 +2,14 @@
 
     global  LED_Setup, Output_GRB
 
-acs0	udata_acs
+acs1	udata_acs 0x10
 
 BRIGHTNESS	res 3
 bitcount	res 1
 bytecount	res 1
 pixelcount	res 1
 longdelaycount	res 1
-current_address res 1
-_GREEN		res 1
-_RED		res 1
-_BLUE		res 1
-_byte		res 1
+Wbyte		res 1
 _PIXELDATA	res 3
 loopcount	res 1
 	
@@ -27,8 +23,9 @@ LED_Setup
 	clrf	PORTH ;// +1
 	bcf	PORTE, 0  ;//+1 ; READY PIN E0 FOR OUTPUT
 	call	CLEAR_pixeldata
-	call	write_states
+	;call	write_states
 	call	Output_GRB
+	goto $
 	return
 	
 write_states
@@ -42,9 +39,9 @@ loop3	call	send_red
 	goto	loop3
 	return	
 send_red
-	movlw	0xF0 ;//+ 1 ;value of 50/255
+	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
-	movlw	0xFF;//+ 1 ;value of 50/255
+	movlw	0x3F;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
 	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
@@ -54,7 +51,7 @@ send_blue
 	movwf	POSTINC0 ;//+1
 	movlw	0x00;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
-	movlw	0xFF ;//+ 1 ;value of 50/255
+	movlw	0x3F ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
 	return
 	
@@ -80,10 +77,10 @@ send_blank
 Output_GRB
 	LFSR	FSR0, 0x100
 	movlw	.210 ;// RESET BYTE COUNT
-	movwf	bytecount, 0
+	movwf	bytecount
 	bcf	INTCON,GIE ;// +1 ;disable interrupts 
 loop1	
-	movff	POSTINC0, _byte
+	movff	POSTINC0, Wbyte
 	call	send_byte
 	decfsz	bytecount, 1
 	bra	loop1
@@ -94,13 +91,14 @@ send_byte
 	movlw	.8
 	movwf	bitcount ;reset bit counter
 loop5
-	BTFSC	_byte, 7 ; check MSB of working byte
+	banksel Wbyte
+	BTFSC	Wbyte, 7 ; check MSB of working byte
 	bra	no_skip		; if 1 - send 1
 	call	Send_0		; if 0 - send 0
 	bra	skip
 no_skip	call	Send_1
-skip	RLNCF	_byte, 1	; then rotate the working byte (load next bit)
-	movff	_byte, PORTH
+skip	RLNCF	Wbyte, F	; then rotate the working byte (load next bit)
+	movff	Wbyte, PORTH
 	decfsz	bitcount, 1, 0	; decrement bit counter
 	goto	loop5	; if bit counter is not zero then loop
 	return
