@@ -24,12 +24,34 @@ GAME code
 Game_setup
 	CLRF	P1_score
 	CLRF	P2_score
+	call	CLEAR_pixeldata
+	call	DrawLeftGoal
+	call	DrawRightGoal
 reset_state
 	movlw	.65
 	movwf	ball_POS
 	movlw	b'10000000'
 	movwf	ball_VEL
 	BCF	ball_DIR, 7 ;NEG INITIAL
+	return
+	
+;------------------------------DRAW GOALS---------------------------------------
+DrawLeftGoal
+	LFSR	FSR0, 0x0F4 ; point to initial address
+	call	writeGOAL
+	return
+DrawRightGoal
+	LFSR	FSR0, 0x1BA
+	call	writeGOAL
+	return
+writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
+	call	send_yellow
+	call	send_yellow
+	call	send_yellow
+	call	send_yellow
+	movlw	.4 ;then decrements the pixelcount and positioncount by 4
+	subwf	pixelcount
+	subwf	poscount
 	return
 	
 ;------------------------------CALCULATE GAME STATE-----------------------------
@@ -56,12 +78,12 @@ Negative ;subtract movecount from POS
 	subwf	ball_POS
 	bra	check_G1
 check_G1 ; here we need to check if the new position is in the first foal
-	movlw	.5
+	movlw	.0
 	CPFSLT	ball_POS    ; check if ball_position is in GOAL1
 	bra	check_G2   ; if not in goal 1 - check goal 2
 	bra	GOAL1	    ; if is in goal 1 - then process goal
 check_G2 ; here we need to check if the new position is in the second goal
-	movlw	.65
+	movlw	.70
 	CPFSGT	ball_POS ; check if ball_position is in GOAL2
 	bra	end_state
 	bra	GOAL2
@@ -80,10 +102,9 @@ end_state ; returns
 ;----------------------------------PUSH GAME STATE -------------------------------------	
 Write_state
 	LFSR	FSR0, 0x100 ; point to initial address
-	movlw	.70
-	movwf	pixelcount  ;70 pixels total
+	movlw	.60
+	movwf	pixelcount  ;60 internal pixels total
 	movff	ball_POS, poscount
-	call	writeGOAL   ;DRAW THE P1 ENDZONE
 loop3	
 	movlw	.0
 	CPFSGT	poscount    ; check if we are at the ball pixel
@@ -93,22 +114,11 @@ loop3
 BALL	
 	call	send_red   ; send red pixel for the ball pixel
 checks_END
-	decf	pixelcount
 	decf	poscount
-	movlw	.5
-	CPFSLT	pixelcount  ; check to see if were in the last 4 pixels (P2 ENDZONE)
-	goto	loop3	    ; still in inner pixels, loop again
-	call	writeGOAL   ; in P2 endzone, draw P2 Endzone
+	decfsz	pixelcount
+	goto	loop3
 	return		    ; entire state has been written	
-writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
-	call	send_yellow
-	call	send_yellow
-	call	send_yellow
-	call	send_yellow
-	movlw	.4 ;then decrements the pixelcount and positioncount by 4
-	subwf	pixelcount
-	subwf	poscount
-	return
+
 
 	
 	
@@ -161,11 +171,19 @@ send_blank
 	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
 	return	
+send_white
+	movlw	0xFF ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0xFF;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	movlw	0xFF ;//+ 1 ;value of 50/255
+	movwf	POSTINC0 ;//+1
+	return	
 	
 
 ;--------------------CLEAR PIXEL DATA------------------------------------
 CLEAR_pixeldata
-	LFSR	FSR0, 0x100
+	LFSR	FSR0, 0x0F4
 	movlw	.70
 	movwf	pixelcount
 loop4	call	send_blank
@@ -173,20 +191,4 @@ loop4	call	send_blank
 	decfsz	pixelcount
 	goto	loop4
 	return
-
-;Write_state
-;	LFSR	FSR0, 0x100
-;	movlw	.10
-;	movwf	loopcount
-;loop3	call	send_red
-;	call	send_blue
-;	call	send_yellow
-;	call	send_green
-;	call	send_blank
-;	;decfsz	numLEDs
-;	decfsz	loopcount
-;	goto	loop3
-;	return	
-	
     end
-
