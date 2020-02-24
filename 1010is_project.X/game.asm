@@ -89,10 +89,10 @@ loop3
 	CPFSGT	poscount    ; check if we are at the ball pixel
 	bra	BALL	    ; if ball is here - go to service routine
 	call	send_blank  ; if ball is not here - send blank
-	bra	checks
+	bra	checks_END
 BALL	
 	call	send_red   ; send red pixel for the ball pixel
-checks
+checks_END
 	decf	pixelcount
 	decf	poscount
 	movlw	.5
