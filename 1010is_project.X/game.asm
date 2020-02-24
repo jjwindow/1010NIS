@@ -16,6 +16,8 @@ loopcount   res 1
 movecount   res 1
 P1_score    res 1
 P2_score    res 1
+P1_button   res	1
+P2_button   res 1
 
    
 GAME code
@@ -24,26 +26,44 @@ GAME code
 Game_setup
 	CLRF	P1_score
 	CLRF	P2_score
+	SETF	TRISJ		;configure PORT J for input  -  J1 = Button 1 FLAG, J2 = Button 2 FLAG
+	;CLRF	PORTH
 	call	CLEAR_pixeldata
 	call	DrawLeftGoal
 	call	DrawRightGoal
-	call	resetstate2
+	call	resetstate1
 	return
 resetstate1
-	movlw	.0
+	movlw	.30
 	movwf	ball_POS
 	movlw	b'10000000'
 	movwf	ball_VEL
 	BSF	ball_DIR, 7 ;POS INITIAL
 	return
 resetstate2
-	movlw	.60
+	movlw	.30
 	movwf	ball_POS
 	movlw	b'10000000'
 	movwf	ball_VEL
 	BCF	ball_DIR, 7 ;NEG INITIAL
 	return
-	
+
+;------------------------------DRAW RACKET--------------------------------------
+DrawLeftRacket
+	LFSR	FSR0, 0x100
+	call	writeRACKET
+	return
+DrawRightRacket
+	LFSR	FSR0, 0x1A5
+	call	writeRACKET
+	return
+writeRACKET
+	call	send_blue
+	call	send_blue
+	call	send_blue
+	call	send_blue
+	call	send_blue
+	return
 ;------------------------------DRAW GOALS---------------------------------------
 DrawLeftGoal
 	LFSR	FSR0, 0x0F1 ; point to initial address
@@ -59,9 +79,6 @@ writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
 	call	send_yellow
 	call	send_yellow
 	call	send_yellow
-	movlw	.5 ;then decrements the pixelcount and positioncount by 4
-	subwf	pixelcount
-	subwf	poscount
 	return
 	
 ;------------------------------CALCULATE GAME STATE-----------------------------
@@ -82,14 +99,38 @@ Check_Direction
 Positive ;add movecount to POS
 	movff	movecount, WREG
 	addwf	ball_POS
+	bra	check_B2
 	bra	check_G2
 Negative ;subtract movecount from POS
 	movff	movecount, WREG
 	subwf	ball_POS
-	bra	check_G1
+	bra	check_B1
+check_B1    ;CHECK IF B1 IS PRESSED
+	BTFSC	PORTJ, 1
+	bra	B1_pressed	; BUTTON 1 PRESSED
+	bra	check_G1	; BUTTON 1 NOT PRESSED
+check_B2    ;CHECK IF B2 IS PRESSED
+	BTFSC	PORTJ, 2
+	bra	B2_pressed	; BUTTON 2 PRESSED
+	bra	check_G2	; BUTTON 2 NOT PRESSED
+B1_pressed
+	movlw	.6
+	CPFSGT	ball_POS	; check if ball is Inside Racket1
+	bra	ReflectRight	; *HIT* - POS < 6 (1, 2, 3, 4 or 5)-(inside racket)
+	bra	check_G1	; *NO HIT* (outside racket) - proceed to check goal
+B2_pressed
+	movlw	.54
+	CPFSLT	ball_POS	; check if ball is inside Racket2
+	bra	ReflectLeft	; *HIT* - POS > 54 (55, 56, 57, 58 or 59) - (inside racket)
+	bra	check_G2	; *NO HIT* (outside racket) - proceed to check goal
+ReflectRight
+	BSF	ball_DIR, 7	; set the direction to POSITIVE (MSB = 1)
+	bra	end_state
+ReflectLeft
+	BCF	ball_DIR, 7	; set the direction to NEGATIVEE (MSB = 0)
+	bra	end_state
 check_G1 ; here we need to check if the new position is in the first foal
-	;movlw	.0
-	BTFSS	STATUS, N    ; check if ball_position is in GOAL1
+	BTFSS	STATUS, N    ; check if ball_position is in GOAL1 (result of subtraction is negative)
 	bra	end_state
 	bra	GOAL1	    ; Result is negative: if is in goal 1 - then process goal
 check_G2 ; here we need to check if the new position is in the second goal
