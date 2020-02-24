@@ -1,7 +1,7 @@
 #include p18f87k22.inc
 
-    global  Write_state, CLEAR_pixeldata, Game_setup, Calculate_state
-    
+    global  Write_state, CLEAR_pixeldata, Game_setup, Calculate_state, frame_delay, GREEN_pixeldata
+    extern  delay_256, reset_animation
 
 acs2	udata_acs 0x20
 
@@ -18,7 +18,9 @@ P1_score    res 1
 P2_score    res 1
 P1_button   res	1
 P2_button   res 1
-
+delay1	    res 1
+delay2	    res 1
+VariableDelay	res 1
    
 GAME code
 
@@ -27,27 +29,46 @@ Game_setup
 	CLRF	P1_score
 	CLRF	P2_score
 	SETF	TRISJ		;configure PORT J for input  -  J1 = Button 1 FLAG, J2 = Button 2 FLAG
-	;CLRF	PORTH
+	call	defaultDelay
 	call	CLEAR_pixeldata
-	call	DrawLeftGoal
-	call	DrawRightGoal
 	call	resetstate1
 	return
 resetstate1
-	movlw	.30
+	call	slowDelay
+	call	reset_animation
+	call	DrawLeftGoal
+	call	DrawRightGoal
+	
+	call	defaultDelay
+	
+	movlw	.0
 	movwf	ball_POS
 	movlw	b'10000000'
 	movwf	ball_VEL
 	BSF	ball_DIR, 7 ;POS INITIAL
 	return
 resetstate2
-	movlw	.30
+	call	slowDelay
+	call	reset_animation
+	call	DrawLeftGoal
+	call	DrawRightGoal
+	
+	call	defaultDelay
+	
+	movlw	.59
 	movwf	ball_POS
 	movlw	b'10000000'
 	movwf	ball_VEL
 	BCF	ball_DIR, 7 ;NEG INITIAL
 	return
-
+defaultDelay
+	movlw	.4
+	movwf	VariableDelay		;set default delay count
+	return
+slowDelay
+	movlw	.10
+	movwf	VariableDelay		; set slow delay count
+	return
 ;------------------------------DRAW RACKET--------------------------------------
 DrawLeftRacket
 	LFSR	FSR0, 0x100
@@ -114,27 +135,51 @@ check_B2    ;CHECK IF B2 IS PRESSED
 	bra	B2_pressed	; BUTTON 2 PRESSED
 	bra	check_G2	; BUTTON 2 NOT PRESSED
 B1_pressed
-	movlw	.6
+	movlw	.4
 	CPFSGT	ball_POS	; check if ball is Inside Racket1
 	bra	ReflectRight	; *HIT* - POS < 6 (1, 2, 3, 4 or 5)-(inside racket)
 	bra	check_G1	; *NO HIT* (outside racket) - proceed to check goal
 B2_pressed
-	movlw	.54
+	movlw	.55
 	CPFSLT	ball_POS	; check if ball is inside Racket2
 	bra	ReflectLeft	; *HIT* - POS > 54 (55, 56, 57, 58 or 59) - (inside racket)
 	bra	check_G2	; *NO HIT* (outside racket) - proceed to check goal
 ReflectRight
 	BSF	ball_DIR, 7	; set the direction to POSITIVE (MSB = 1)
-	bra	end_state
+	movlw	.4
+	CPFSLT	ball_POS	;CHECK BALL POSITION
+	bra	decVEL_2	; POS = 4 - decrease velocity by 2 units
+	movlw	.3		
+	CPFSLT	ball_POS
+	bra	decVEL_1	; POS = 3 - decrease velocity by 1 unit
+	movlw	.2		
+	CPFSLT	ball_POS
+	bra	end_state	; POS = 2 - do not change velocity (-> END)
+	movlw	.1		
+	CPFSLT	ball_POS	
+	bra	incVEL_1	; POS = 1 - increase velocity by 1 unit
+	bra	incVEL_2	; POS = 0 - increase velocity by 2 units
 ReflectLeft
-	BCF	ball_DIR, 7	; set the direction to NEGATIVEE (MSB = 0)
-	bra	end_state
+	BCF	ball_DIR, 7	; set the direction to NEGATIVE (MSB = 0)
+	movlw	.55
+	CPFSGT	ball_POS	;CHECK BALL POSITION
+	bra	decVEL_2	; POS = 55 - decrease velocity by 2 units
+	movlw	.56
+	CPFSGT	ball_POS
+	bra	decVEL_1	; POS = 56 - decrease velocity by 1 unit
+	movlw	.57
+	CPFSGT	ball_POS
+	bra	end_state	; POS = 57 - do not change velocity (-> END)
+	movlw	.58
+	CPFSGT	ball_POS	
+	bra	incVEL_1	; POS = 58 - increase velocity by 1 unit
+	bra	incVEL_2	; POS = 59 - increase velocity by 2 units
 check_G1 ; here we need to check if the new position is in the first foal
 	BTFSS	STATUS, N    ; check if ball_position is in GOAL1 (result of subtraction is negative)
 	bra	end_state
 	bra	GOAL1	    ; Result is negative: if is in goal 1 - then process goal
 check_G2 ; here we need to check if the new position is in the second goal
-	movlw	.60
+	movlw	.59
 	CPFSGT	ball_POS ; check if ball_position is in GOAL2
 	bra	end_state
 	bra	GOAL2
@@ -148,8 +193,30 @@ GOAL2	; ball in goal 2 - so Player 1 has scored
 	bra	end_state
 end_state ; returns
 	return
-	
-	
+;-------------------increase/decrease Velocity functions--------------------	
+decVEL_2
+	incf	VariableDelay
+	incf	VariableDelay
+	bra	end_state
+decVEL_1
+	incf	VariableDelay
+	bra	end_state
+incVEL_1
+	decfsz	VariableDelay
+	bra	end_state ; delay not zero - so fine, return
+	call	set_MIN	  ; delay is zero but must be at least 1
+incVEL_2
+	decfsz	VariableDelay
+	bra	decAgain	; delay not min yet, so decrement again
+	bra	set_MIN		; delay is min - set to minimum value of 1 (MAX VELOCITY) 
+decAgain
+	decfsz	VariableDelay
+	bra	end_state
+	bra	set_MIN		; delay is min - set to minimum value of 1 (MAX VELOCITY)
+set_MIN	
+	movlw	.1
+	movwf	VariableDelay
+	bra	end_state
 ;----------------------------------PUSH GAME STATE -------------------------------------	
 Write_state
 	LFSR	FSR0, 0x100 ; point to initial address
@@ -242,4 +309,37 @@ loop4	call	send_blank
 	decfsz	pixelcount
 	goto	loop4
 	return
-    end
+    
+GREEN_pixeldata
+	LFSR	FSR0, 0x0F1
+	movlw	.70
+	movwf	pixelcount
+loop5	call	send_green
+	;decfsz	numLEDs
+	decfsz	pixelcount
+	goto	loop5
+	return
+	
+;--------------FRAME DELAY ROUTINES--------------------	
+
+frame_delay
+;	movlw	.8 ;commented to try multiplier
+;	movwf	delay2
+	movff	VariableDelay, delay2
+iter2	decfsz	delay2
+	goto	cont2
+	return
+cont2	call	sub_delay
+	goto	iter2
+
+sub_delay
+	movlw	0x0
+	movwf	delay1
+iter1	decfsz	delay1
+	goto	cont1
+	return
+cont1	call	delay_256
+	goto	iter1
+	
+;-------------END-------------
+	end
