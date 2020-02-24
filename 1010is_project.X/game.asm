@@ -27,8 +27,17 @@ Game_setup
 	call	CLEAR_pixeldata
 	call	DrawLeftGoal
 	call	DrawRightGoal
-reset_state
-	movlw	.65
+	call	resetstate2
+	return
+resetstate1
+	movlw	.0
+	movwf	ball_POS
+	movlw	b'10000000'
+	movwf	ball_VEL
+	BSF	ball_DIR, 7 ;POS INITIAL
+	return
+resetstate2
+	movlw	.60
 	movwf	ball_POS
 	movlw	b'10000000'
 	movwf	ball_VEL
@@ -37,11 +46,11 @@ reset_state
 	
 ;------------------------------DRAW GOALS---------------------------------------
 DrawLeftGoal
-	LFSR	FSR0, 0x0F4 ; point to initial address
+	LFSR	FSR0, 0x0F1 ; point to initial address
 	call	writeGOAL
 	return
 DrawRightGoal
-	LFSR	FSR0, 0x1BA
+	LFSR	FSR0, 0x1B4
 	call	writeGOAL
 	return
 writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
@@ -49,7 +58,8 @@ writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
 	call	send_yellow
 	call	send_yellow
 	call	send_yellow
-	movlw	.4 ;then decrements the pixelcount and positioncount by 4
+	call	send_yellow
+	movlw	.5 ;then decrements the pixelcount and positioncount by 4
 	subwf	pixelcount
 	subwf	poscount
 	return
@@ -72,29 +82,29 @@ Check_Direction
 Positive ;add movecount to POS
 	movff	movecount, WREG
 	addwf	ball_POS
-	bra	check_G1
+	bra	check_G2
 Negative ;subtract movecount from POS
 	movff	movecount, WREG
 	subwf	ball_POS
 	bra	check_G1
 check_G1 ; here we need to check if the new position is in the first foal
-	movlw	.0
-	CPFSLT	ball_POS    ; check if ball_position is in GOAL1
-	bra	check_G2   ; if not in goal 1 - check goal 2
-	bra	GOAL1	    ; if is in goal 1 - then process goal
+	;movlw	.0
+	BTFSS	STATUS, N    ; check if ball_position is in GOAL1
+	bra	end_state
+	bra	GOAL1	    ; Result is negative: if is in goal 1 - then process goal
 check_G2 ; here we need to check if the new position is in the second goal
-	movlw	.70
+	movlw	.60
 	CPFSGT	ball_POS ; check if ball_position is in GOAL2
 	bra	end_state
 	bra	GOAL2
 GOAL1	; ball in goal 1 - so Player 2 has scored
 	incf	P2_score 
-	bra	resetgame
+	call	resetstate1
+	bra	end_state
 GOAL2	; ball in goal 2 - so Player 1 has scored
 	incf	P1_score
-	bra	resetgame
-resetgame ; resets the game state if a goal has been scored
-	call	reset_state
+	call	resetstate2
+	bra	end_state
 end_state ; returns
 	return
 	
@@ -183,7 +193,7 @@ send_white
 
 ;--------------------CLEAR PIXEL DATA------------------------------------
 CLEAR_pixeldata
-	LFSR	FSR0, 0x0F4
+	LFSR	FSR0, 0x0F1
 	movlw	.70
 	movwf	pixelcount
 loop4	call	send_blank
