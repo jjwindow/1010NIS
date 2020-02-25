@@ -1,6 +1,8 @@
 #include p18f87k22.inc
 
-    global  Write_state, CLEAR_pixeldata, Game_setup, Calculate_state, frame_delay, GREEN_pixeldata
+    global  Write_state, CLEAR_pixeldata, Game_setup, Calculate_state
+    global  frame_delay, GREEN_pixeldata
+    global  leftracket_true, leftracket_false, rightracket_true, rightracket_false
     extern  delay_256, reset_animation
 
 acs2	udata_acs 0x20
@@ -21,6 +23,8 @@ P2_button   res 1
 delay1	    res 1
 delay2	    res 1
 VariableDelay	res 1
+racketcount res 1
+sitecheck  res 1
    
 GAME code
 
@@ -28,7 +32,8 @@ GAME code
 Game_setup
 	CLRF	P1_score
 	CLRF	P2_score
-	SETF	TRISJ		;configure PORT J for input  -  J1 = Button 1 FLAG, J2 = Button 2 FLAG
+	SETF	TRISJ		; configure PORT J for input  -  
+				; J1 = Button 1 FLAG, J2 = Button 2 FLAG
 	call	defaultDelay
 	call	CLEAR_pixeldata
 	call	resetstate1
@@ -41,11 +46,11 @@ resetstate1
 	
 	call	defaultDelay
 	
-	movlw	.0
+	movlw	.0		; Ball starts at near end of gamezone
 	movwf	ball_POS
-	movlw	b'10000000'
+	movlw	b'10000000'	; Lowest speed
 	movwf	ball_VEL
-	BSF	ball_DIR, 7 ;POS INITIAL
+	BSF	ball_DIR, 7	; Inital velocity left to right
 	return
 resetstate2
 	call	slowDelay
@@ -55,11 +60,11 @@ resetstate2
 	
 	call	defaultDelay
 	
-	movlw	.59
+	movlw	.59		; Ball starts at far end of gamezone
 	movwf	ball_POS
-	movlw	b'10000000'
+	movlw	b'10000000'	; Lowest speed
 	movwf	ball_VEL
-	BCF	ball_DIR, 7 ;NEG INITIAL
+	BCF	ball_DIR, 7	; Inital velocity right to left
 	return
 defaultDelay
 	movlw	.4
@@ -71,30 +76,63 @@ slowDelay
 	return
 ;------------------------------DRAW RACKET--------------------------------------
 DrawLeftRacket
-	LFSR	FSR0, 0x100
-	call	writeRACKET
+	LFSR	FSR0, 0x100	; Registers for left of gamezone 
+	call	writeRACKET_l
 	return
 DrawRightRacket
-	LFSR	FSR0, 0x1A5
-	call	writeRACKET
+	LFSR	FSR0, 0x1A5	; Registers for right of gamezone 
+	call	writeRACKET_r
 	return
-writeRACKET
-	call	send_blue
-	call	send_blue
-	call	send_blue
-	call	send_blue
-	call	send_blue
-	return
+	
+writeRACKET_r
+	movlw	.50		; on left, racket starts at site 50
+	movwf	sitecheck
+racketloop_r
+	movlw	.55
+	cpfseq	sitecheck	
+	bra	in_racket_r	; if counter not reached, continue checking racket sites
+	return			; if counter reached, exit
+in_racket_r
+	cpfseq	ball_POS
+	bra	no_ball_r
+	call	send_pink	; if ball at this site in racket, display pink
+	incf	sitecheck
+	bra	racketloop_r
+no_ball_r
+	call	send_blue	; if ball not at that site, pixel is blu
+	incf	sitecheck
+	bra	racketloop_r
+	
+writeRACKET_l
+	movlw	.0		; on left, racket starts at site 0
+	movwf	sitecheck
+racketloop_l
+	movlw	.5
+	cpfseq	sitecheck
+	bra	in_racket_l	; if counter not reached, continue checking racket sites
+	return			; if counter reached, exit
+in_racket_l
+	cpfseq	ball_POS
+	bra	no_ball_l
+	call	send_pink	; if ball at this site in racket, display pink
+	incf	sitecheck
+	bra	racketloop_l
+no_ball_l
+	call	send_blue	; if ball not at that site, pixel is blue
+	incf	sitecheck
+	bra	racketloop_l
+	
 ;------------------------------DRAW GOALS---------------------------------------
+	
 DrawLeftGoal
-	LFSR	FSR0, 0x0F1 ; point to initial address
+	LFSR	FSR0, 0x0F1	; Point to initial address
 	call	writeGOAL
 	return
 DrawRightGoal
 	LFSR	FSR0, 0x1B4
 	call	writeGOAL
 	return
-writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
+writeGOAL ; this writes a sequence of 5 yellow pixels for the endzone
 	call	send_yellow
 	call	send_yellow
 	call	send_yellow
@@ -105,14 +143,15 @@ writeGOAL ; this writes a sequence of 4 yellow pixels for the endzone
 ;------------------------------CALCULATE GAME STATE-----------------------------
 Calculate_state
 	movlw	.0
-	movwf	movecount   ;initially set the movecount to zero
+	movwf	movecount	    ; initially set the movecount to zero
 	movff	ball_VEL, workingVEL
 Check_Magnitude
-	incf	movecount	    ;increment movecount
-	BTFSC	workingVEL, 7	    ;check current bit of velocity
-	bra	Check_Direction	    ;if NOT CLEAR (i.e. the 1 has been found) - then Update Position based on movecount
-	rlcf	workingVEL, 1	    ;load next bit
-	goto	Check_Magnitude	    ;loop again, check next bit
+	incf	movecount	    ; increment movecount
+	BTFSC	workingVEL, 7	    ; check current bit of velocity
+	bra	Check_Direction	    ; if NOT CLEAR (i.e. the 1 has been found) - 
+				    ; then Update Position based on movecount
+	rlcf	workingVEL, 1	    ; load next bit
+	goto	Check_Magnitude	    ; loop again, check next bit
 Check_Direction
 	BTFSC	ball_DIR, 7
 	bra	Positive	    ; MSB = 1 - direction is POSITIVE
@@ -126,28 +165,30 @@ Negative ;subtract movecount from POS
 	movff	movecount, WREG
 	subwf	ball_POS
 	bra	check_B1
-check_B1    ;CHECK IF B1 IS PRESSED
+check_B1 ;CHECK IF B1 IS PRESSED
 	BTFSC	PORTJ, 1
 	bra	B1_pressed	; BUTTON 1 PRESSED
 	bra	check_G1	; BUTTON 1 NOT PRESSED
-check_B2    ;CHECK IF B2 IS PRESSED
+check_B2 ;CHECK IF B2 IS PRESSED
 	BTFSC	PORTJ, 2
 	bra	B2_pressed	; BUTTON 2 PRESSED
 	bra	check_G2	; BUTTON 2 NOT PRESSED
 B1_pressed
-	movlw	.4
+	call	DrawLeftRacket
+	movlw	.6
 	CPFSGT	ball_POS	; check if ball is Inside Racket1
 	bra	ReflectRight	; *HIT* - POS < 6 (1, 2, 3, 4 or 5)-(inside racket)
 	bra	check_G1	; *NO HIT* (outside racket) - proceed to check goal
 B2_pressed
-	movlw	.55
+	call	DrawRightRacket
+	movlw	.54
 	CPFSLT	ball_POS	; check if ball is inside Racket2
 	bra	ReflectLeft	; *HIT* - POS > 54 (55, 56, 57, 58 or 59) - (inside racket)
 	bra	check_G2	; *NO HIT* (outside racket) - proceed to check goal
 ReflectRight
 	BSF	ball_DIR, 7	; set the direction to POSITIVE (MSB = 1)
 	movlw	.4
-	CPFSLT	ball_POS	;CHECK BALL POSITION
+	CPFSLT	ball_POS	; CHECK BALL POSITION
 	bra	decVEL_2	; POS = 4 - decrease velocity by 2 units
 	movlw	.3		
 	CPFSLT	ball_POS
@@ -162,7 +203,7 @@ ReflectRight
 ReflectLeft
 	BCF	ball_DIR, 7	; set the direction to NEGATIVE (MSB = 0)
 	movlw	.55
-	CPFSGT	ball_POS	;CHECK BALL POSITION
+	CPFSGT	ball_POS	; CHECK BALL POSITION
 	bra	decVEL_2	; POS = 55 - decrease velocity by 2 units
 	movlw	.56
 	CPFSGT	ball_POS
@@ -175,12 +216,13 @@ ReflectLeft
 	bra	incVEL_1	; POS = 58 - increase velocity by 1 unit
 	bra	incVEL_2	; POS = 59 - increase velocity by 2 units
 check_G1 ; here we need to check if the new position is in the first foal
-	BTFSS	STATUS, N    ; check if ball_position is in GOAL1 (result of subtraction is negative)
+	BTFSS	STATUS, N	; check if ball_position is in GOAL1 
+				; (result of subtraction is negative)
 	bra	end_state
-	bra	GOAL1	    ; Result is negative: if is in goal 1 - then process goal
+	bra	GOAL1		; Result is negative: if is in goal 1 - then process goal
 check_G2 ; here we need to check if the new position is in the second goal
 	movlw	.59
-	CPFSGT	ball_POS ; check if ball_position is in GOAL2
+	CPFSGT	ball_POS	; check if ball_position is in GOAL2
 	bra	end_state
 	bra	GOAL2
 GOAL1	; ball in goal 1 - so Player 2 has scored
@@ -203,8 +245,8 @@ decVEL_1
 	bra	end_state
 incVEL_1
 	decfsz	VariableDelay
-	bra	end_state ; delay not zero - so fine, return
-	call	set_MIN	  ; delay is zero but must be at least 1
+	bra	end_state	; delay not zero - so fine, return
+	call	set_MIN		; delay is zero but must be at least 1
 incVEL_2
 	decfsz	VariableDelay
 	bra	decAgain	; delay not min yet, so decrement again
@@ -219,24 +261,95 @@ set_MIN
 	bra	end_state
 ;----------------------------------PUSH GAME STATE -------------------------------------	
 Write_state
-	LFSR	FSR0, 0x100 ; point to initial address
-	movlw	.60
-	movwf	pixelcount  ;60 internal pixels total
+	LFSR	FSR0, 0x10F ; point to initial address
+	movlw	.50 ; non-racket pixels
+	movwf	pixelcount  
 	movff	ball_POS, poscount
 loop3	
 	movlw	.0
 	CPFSGT	poscount    ; check if we are at the ball pixel
-	bra	BALL	    ; if ball is here - go to service routine
+	bra	BALL1	    ; if ball is here - go to service routine
 	call	send_blank  ; if ball is not here - send blank
-	bra	checks_END
-BALL	
+	bra	checks_END1
+BALL1 	
 	call	send_red   ; send red pixel for the ball pixel
-checks_END
+checks_END1
 	decf	poscount
 	decfsz	pixelcount
 	goto	loop3
 	return		    ; entire state has been written	
-
+	
+leftracket_true
+	LFSR	FSR0, 0x100
+	movlw	.5
+	movwf	racketcount
+lr_loop1
+	call	send_null
+	decfsz	racketcount
+	bra	lr_loop1
+	return
+	
+leftracket_false
+	LFSR	FSR0, 0x100
+	movlw	.5
+	movwf	racketcount
+lr_loop2
+	call	send_blank
+	decfsz	racketcount
+	bra	lr_loop2
+	return	
+	
+rightracket_true
+	LFSR	FSR0, 0x1A5
+	movlw	.5
+	movwf	racketcount
+rr_loop1
+	call	send_null
+	decfsz	racketcount
+	bra	rr_loop1
+	return
+	
+rightracket_false
+	LFSR	FSR0, 0x1A5
+	movlw	.5
+	movwf	racketcount
+rr_loop2
+	call	send_blank
+	decfsz	racketcount
+	bra	rr_loop2
+	return	
+	
+	
+;Write_state_buttonpress
+;	LFSR	FSR0, 0x100 ; point to initial address
+;	movlw	.5
+;	movwf	racketcount
+;bp_loop1
+;	call	send_null
+;	decfsz	racketcount
+;	bra	bp_loop1
+;	movlw	.50
+;	movwf	pixelcount  ; 50 non-racket pixels
+;	movff	ball_POS, poscount
+;bp_loop2	
+;	movlw	.0
+;	CPFSGT	poscount    ; check if we are at the ball pixel
+;	bra	BALL2	    ; if ball is here - go to service routine
+;	call	send_blank  ; if ball is not here - send blank
+;	bra	checks_END2
+;BALL2	
+;	call	send_red   ; send red pixel for the ball pixel
+;checks_END2
+;	decf	poscount
+;	decfsz	pixelcount
+;	goto	bp_loop2
+;	movlw	.5
+;	movwf	racketcount
+;bp_loop3	
+;	call	send_null
+;	decfsz	racketcount
+;	bra	bp_loop3
+;	return		    ; entire state has been written	
 
 	
 	
@@ -289,6 +402,12 @@ send_blank
 	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
 	return	
+send_null
+	movlw	.0
+	addwf	POSTINC0    ; Skip three FSR addresses (move to next pixel)
+	addwf	POSTINC0
+	addwf	POSTINC0
+	return
 send_white
 	movlw	0xFF ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
@@ -302,7 +421,7 @@ send_white
 ;--------------------CLEAR PIXEL DATA------------------------------------
 CLEAR_pixeldata
 	LFSR	FSR0, 0x0F1
-	movlw	.70
+	movlw	.71
 	movwf	pixelcount
 loop4	call	send_blank
 	;decfsz	numLEDs
