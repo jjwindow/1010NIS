@@ -265,15 +265,17 @@ Write_state
 	movlw	.50 ; non-racket pixels
 	movwf	pixelcount  
 	movff	ball_POS, poscount
+	movlw	.5
+	subwf	poscount, 1
 loop3	
 	movlw	.0
 	CPFSGT	poscount    ; check if we are at the ball pixel
-	bra	BALL1	    ; if ball is here - go to service routine
+	bra	BALL	    ; if ball is here - go to service routine
 	call	send_blank  ; if ball is not here - send blank
-	bra	checks_END1
-BALL1 	
+	bra	checks_END
+BALL 	
 	call	send_red   ; send red pixel for the ball pixel
-checks_END1
+checks_END
 	decf	poscount
 	decfsz	pixelcount
 	goto	loop3
@@ -293,11 +295,20 @@ leftracket_false
 	LFSR	FSR0, 0x100
 	movlw	.5
 	movwf	racketcount
+	movff	ball_POS, poscount
 lr_loop2
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_l	; send ball
 	call	send_blank
+	bra	check_fin_l
+ball_true_l
+	call	send_red	
+check_fin_l  ; check if we have done all racket pixels
+	decf	poscount
 	decfsz	racketcount
-	bra	lr_loop2
-	return	
+	goto	lr_loop2
+	return
 	
 rightracket_true
 	LFSR	FSR0, 0x1A5
@@ -308,17 +319,37 @@ rr_loop1
 	decfsz	racketcount
 	bra	rr_loop1
 	return
+;	
+;rightracket_false
+;	LFSR	FSR0, 0x1A5
+;	movlw	.5
+;	movwf	racketcount
+;rr_loop2
+;	call	send_blank
+;	decfsz	racketcount
+;	bra	rr_loop2
+;	return	
 	
 rightracket_false
 	LFSR	FSR0, 0x1A5
 	movlw	.5
 	movwf	racketcount
+	movff	ball_POS, poscount
+	movlw	.55
+	subwf	poscount, 1
 rr_loop2
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_r	; send ball
 	call	send_blank
+	bra	check_fin_r
+ball_true_r
+	call	send_red	
+check_fin_r   ; check if we have done all racket pixels
+	decf	poscount
 	decfsz	racketcount
-	bra	rr_loop2
-	return	
-	
+	goto	lr_loop2
+	return
 	
 ;Write_state_buttonpress
 ;	LFSR	FSR0, 0x100 ; point to initial address
