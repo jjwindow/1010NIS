@@ -71,7 +71,7 @@ defaultDelay
 	movwf	VariableDelay		;set default delay count
 	return
 slowDelay
-	movlw	.10
+	movlw	.20
 	movwf	VariableDelay		; set slow delay count
 	return
 ;------------------------------DRAW RACKET--------------------------------------
@@ -229,11 +229,11 @@ check_G2 ; here we need to check if the new position is in the second goal
 	bra	GOAL2
 GOAL1	; ball in goal 1 - so Player 2 has scored
 	incf	P2_score 
-	call	resetstate1
+	call	resetstate2
 	bra	end_state
 GOAL2	; ball in goal 2 - so Player 1 has scored
 	incf	P1_score
-	call	resetstate2
+	call	resetstate1
 	bra	end_state
 end_state ; returns
 	return
