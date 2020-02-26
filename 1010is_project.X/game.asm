@@ -74,74 +74,7 @@ slowDelay
 	movlw	.20
 	movwf	VariableDelay		; set slow delay count
 	return
-;------------------------------DRAW RACKET--------------------------------------
-DrawLeftRacket
-	LFSR	FSR0, 0x100	; Registers for left of gamezone 
-	call	writeRACKET_l
-	return
-DrawRightRacket
-	LFSR	FSR0, 0x1A5	; Registers for right of gamezone 
-	call	writeRACKET_r
-	return
-	
-writeRACKET_r
-	movlw	.50		; on left, racket starts at site 50
-	movwf	sitecheck
-racketloop_r
-	movlw	.55
-	cpfseq	sitecheck	
-	bra	in_racket_r	; if counter not reached, continue checking racket sites
-	return			; if counter reached, exit
-in_racket_r
-	movff	sitecheck, W
-	cpfseq	ball_POS
-	bra	no_ball_r
-	call	send_pink	; if ball at this site in racket, display pink
-	incf	sitecheck
-	bra	racketloop_r
-no_ball_r
-	call	send_blue	; if ball not at that site, pixel is blu
-	incf	sitecheck
-	bra	racketloop_r
-	
-writeRACKET_l
-	movlw	.0		; on left, racket starts at site 0
-	movwf	sitecheck
-racketloop_l
-	movlw	.5
-	cpfseq	sitecheck
-	bra	in_racket_l	; if counter not reached, continue checking racket sites
-	return			; if counter reached, exit
-in_racket_l
-	movff	sitecheck, W
-	cpfseq	ball_POS
-	bra	no_ball_l
-	call	send_pink	; if ball at this site in racket, display pink
-	incf	sitecheck
-	bra	racketloop_l
-no_ball_l
-	call	send_blue	; if ball not at that site, pixel is blue
-	incf	sitecheck
-	bra	racketloop_l
-	
-;------------------------------DRAW GOALS---------------------------------------
-	
-DrawLeftGoal
-	LFSR	FSR0, 0x0F1	; Point to initial address
-	call	writeGOAL
-	return
-DrawRightGoal
-	LFSR	FSR0, 0x1B4
-	call	writeGOAL
-	return
-writeGOAL ; this writes a sequence of 5 yellow pixels for the endzone
-	call	send_yellow
-	call	send_yellow
-	call	send_yellow
-	call	send_yellow
-	call	send_yellow
-	return
-	
+
 ;------------------------------CALCULATE GAME STATE-----------------------------
 Calculate_state
 	movlw	.0
@@ -229,15 +162,168 @@ check_G2 ; here we need to check if the new position is in the second goal
 	bra	GOAL2
 GOAL1	; ball in goal 1 - so Player 2 has scored
 	incf	P2_score 
-	call	resetstate2
+	call	resetstate1
 	bra	end_state
 GOAL2	; ball in goal 2 - so Player 1 has scored
 	incf	P1_score
-	call	resetstate1
+	call	resetstate2
 	bra	end_state
 end_state ; returns
 	return
-;-------------------increase/decrease Velocity functions--------------------	
+
+;------------------------------DRAW RACKET--------------------------------------
+DrawLeftRacket
+	LFSR	FSR0, 0x100	; Registers for left of gamezone 
+	call	writeRACKET_l
+	return
+DrawRightRacket
+	LFSR	FSR0, 0x1A5	; Registers for right of gamezone 
+	call	writeRACKET_r
+	return
+	
+writeRACKET_r
+	movlw	.50		; on left, racket starts at site 50
+	movwf	sitecheck
+racketloop_r
+	movlw	.55
+	cpfseq	sitecheck	
+	bra	in_racket_r	; if counter not reached, continue checking racket sites
+	return			; if counter reached, exit
+in_racket_r
+	movff	sitecheck, W
+	cpfseq	ball_POS
+	bra	no_ball_r
+	call	send_pink	; if ball at this site in racket, display pink
+	incf	sitecheck
+	bra	racketloop_r
+no_ball_r
+	call	send_blue	; if ball not at that site, pixel is blu
+	incf	sitecheck
+	bra	racketloop_r
+	
+writeRACKET_l
+	movlw	.0		; on left, racket starts at site 0
+	movwf	sitecheck
+racketloop_l
+	movlw	.5
+	cpfseq	sitecheck
+	bra	in_racket_l	; if counter not reached, continue checking racket sites
+	return			; if counter reached, exit
+in_racket_l
+	movff	sitecheck, W
+	cpfseq	ball_POS
+	bra	no_ball_l
+	call	send_pink	; if ball at this site in racket, display pink
+	incf	sitecheck
+	bra	racketloop_l
+no_ball_l
+	call	send_blue	; if ball not at that site, pixel is blue
+	incf	sitecheck
+	bra	racketloop_l
+
+;----------------------------------CONDITION CASES FOR RACKET -------------------------------------	
+;-------------------------DRAW RACKET (BUTTON PRESSED)
+rightracket_true
+	LFSR	FSR0, 0x1A5
+	movlw	.5
+	movwf	racketcount
+	movff	ball_POS, poscount
+	movlw	.55
+	subwf	poscount, 1
+rr_loop1
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_r_t	; send ball
+	call	send_blue
+	bra	check_fin_r_t
+ball_true_r_t
+	call	send_pink	
+check_fin_r_t ; check if we have done all racket pixels
+	decf	poscount
+	decfsz	racketcount
+	goto	lr_loop1
+	return
+		
+	
+leftracket_true
+	LFSR	FSR0, 0x100
+	movlw	.5
+	movwf	racketcount
+	movff	ball_POS, poscount
+lr_loop1
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_l_t	; send ball
+	call	send_blue
+	bra	check_fin_l_t
+ball_true_l_t
+	call	send_pink	
+check_fin_l_t  ; check if we have done all racket pixels
+	decf	poscount
+	decfsz	racketcount
+	goto	lr_loop1
+	return
+
+;-------------------------DRAW RACKET (NO BUTTON)
+leftracket_false
+	LFSR	FSR0, 0x100
+	movlw	.5
+	movwf	racketcount
+	movff	ball_POS, poscount
+lr_loop2
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_l_f	; send ball
+	call	send_blank
+	bra	check_fin_l_f
+ball_true_l_f
+	call	send_red	
+check_fin_l_f  ; check if we have done all racket pixels
+	decf	poscount
+	decfsz	racketcount
+	goto	lr_loop2
+	return
+	
+rightracket_false
+	LFSR	FSR0, 0x1A5
+	movlw	.5
+	movwf	racketcount
+	movff	ball_POS, poscount
+	movlw	.55
+	subwf	poscount, 1
+rr_loop2
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_r	; send ball
+	call	send_blank
+	bra	check_fin_r
+ball_true_r
+	call	send_red	
+check_fin_r   ; check if we have done all racket pixels
+	decf	poscount
+	decfsz	racketcount
+	goto	lr_loop2
+	return
+	
+;------------------------------DRAW GOALS---------------------------------------
+	
+DrawLeftGoal
+	LFSR	FSR0, 0x0F1	; Point to initial address
+	call	writeGOAL
+	return
+DrawRightGoal
+	LFSR	FSR0, 0x1B4
+	call	writeGOAL
+	return
+writeGOAL ; this writes a sequence of 5 yellow pixels for the endzone
+	call	send_yellow
+	call	send_yellow
+	call	send_yellow
+	call	send_yellow
+	call	send_yellow
+	return
+	
+;-------------------INCREASE/DECREASE VELOCITY FUNCTIONS--------------------	
 decVEL_2
 	incf	VariableDelay
 	incf	VariableDelay
@@ -261,6 +347,7 @@ set_MIN
 	movlw	.1
 	movwf	VariableDelay
 	bra	end_state
+
 ;----------------------------------PUSH GAME STATE -------------------------------------	
 Write_state
 	LFSR	FSR0, 0x10F ; point to initial address
@@ -281,170 +368,57 @@ checks_END
 	decf	poscount
 	decfsz	pixelcount
 	goto	loop3
-	return		    ; entire state has been written	
+	return		    ; entire state has been written
 	
-leftracket_true
-	LFSR	FSR0, 0x100
-	movlw	.5
-	movwf	racketcount
-	movff	ball_POS, poscount
-lr_loop1
-	movlw	.0
-	cpfsgt	poscount	; check if we are at ball pixel
-	bra	ball_true_l_t	; send ball
-	call	send_blue
-	bra	check_fin_l_t
-ball_true_l_t
-	call	send_pink	
-check_fin_l_t  ; check if we have done all racket pixels
-	decf	poscount
-	decfsz	racketcount
-	goto	lr_loop1
-	return
-	
-leftracket_false
-	LFSR	FSR0, 0x100
-	movlw	.5
-	movwf	racketcount
-	movff	ball_POS, poscount
-lr_loop2
-	movlw	.0
-	cpfsgt	poscount	; check if we are at ball pixel
-	bra	ball_true_l_f	; send ball
-	call	send_blank
-	bra	check_fin_l_f
-ball_true_l_f
-	call	send_red	
-check_fin_l_f  ; check if we have done all racket pixels
-	decf	poscount
-	decfsz	racketcount
-	goto	lr_loop2
-	return
-	
-rightracket_true
-	LFSR	FSR0, 0x1A5
-	movlw	.5
-	movwf	racketcount
-	movff	ball_POS, poscount
-	movlw	.55
-	subwf	poscount, 1
-rr_loop1
-	movlw	.0
-	cpfsgt	poscount	; check if we are at ball pixel
-	bra	ball_true_r_t	; send ball
-	call	send_blue
-	bra	check_fin_r_t
-ball_true_r_t
-	call	send_pink	
-check_fin_r_t ; check if we have done all racket pixels
-	decf	poscount
-	decfsz	racketcount
-	goto	lr_loop1
-	return
-	
-	
-rightracket_false
-	LFSR	FSR0, 0x1A5
-	movlw	.5
-	movwf	racketcount
-	movff	ball_POS, poscount
-	movlw	.55
-	subwf	poscount, 1
-rr_loop2
-	movlw	.0
-	cpfsgt	poscount	; check if we are at ball pixel
-	bra	ball_true_r	; send ball
-	call	send_blank
-	bra	check_fin_r
-ball_true_r
-	call	send_red	
-check_fin_r   ; check if we have done all racket pixels
-	decf	poscount
-	decfsz	racketcount
-	goto	lr_loop2
-	return
-	
-;Write_state_buttonpress
-;	LFSR	FSR0, 0x100 ; point to initial address
-;	movlw	.5
-;	movwf	racketcount
-;bp_loop1
-;	call	send_null
-;	decfsz	racketcount
-;	bra	bp_loop1
-;	movlw	.50
-;	movwf	pixelcount  ; 50 non-racket pixels
-;	movff	ball_POS, poscount
-;bp_loop2	
-;	movlw	.0
-;	CPFSGT	poscount    ; check if we are at the ball pixel
-;	bra	BALL2	    ; if ball is here - go to service routine
-;	call	send_blank  ; if ball is not here - send blank
-;	bra	checks_END2
-;BALL2	
-;	call	send_red   ; send red pixel for the ball pixel
-;checks_END2
-;	decf	poscount
-;	decfsz	pixelcount
-;	goto	bp_loop2
-;	movlw	.5
-;	movwf	racketcount
-;bp_loop3	
-;	call	send_null
-;	decfsz	racketcount
-;	bra	bp_loop3
-;	return		    ; entire state has been written	
 
-	
-	
 ;------------------------------COLOUR CODES -------------------------------	
 send_red
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0xBC;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
+	movlw	0x00 
+	movwf	POSTINC0 
+	movlw	0xBC
+	movwf	POSTINC0 
+	movlw	0x00 
+	movwf	POSTINC0 
 	return
 send_blue
-	movlw	0xFF ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0xFB ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
+	movlw	0xFF 
+	movwf	POSTINC0 
+	movlw	0x00
+	movwf	POSTINC0 
+	movlw	0xFB 
+	movwf	POSTINC0
 	return
 send_green
-	movlw	0xA1 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x11 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
+	movlw	0xA1 
+	movwf	POSTINC0 
+	movlw	0x00
+	movwf	POSTINC0 
+	movlw	0x11 
+	movwf	POSTINC0 
 	return
 send_yellow
-	movlw	0xF0 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0xFF;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
+	movlw	0xF0 
+	movwf	POSTINC0
+	movlw	0xFF
+	movwf	POSTINC0
+	movlw	0x00 
+	movwf	POSTINC0
 	return
 send_pink
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0xF0;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0xFF ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
+	movlw	0x00 
+	movwf	POSTINC0 
+	movlw	0xB7
+	movwf	POSTINC0 
+	movlw	0xFF 
+	movwf	POSTINC0 
 	return
 send_blank
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
+	movlw	0x00 
+	movwf	POSTINC0 
+	movlw	0x00
+	movwf	POSTINC0 
+	movlw	0x00 
+	movwf	POSTINC0 
 	return	
 send_null
 	movlw	.0
@@ -453,12 +427,12 @@ send_null
 	addwf	POSTINC0
 	return
 send_white
-	movlw	0xFF ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0xFF;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0xFF ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
+	movlw	0xFF 
+	movwf	POSTINC0 
+	movlw	0xFF
+	movwf	POSTINC0 
+	movlw	0xFF 
+	movwf	POSTINC0 
 	return	
 	
 
@@ -468,7 +442,6 @@ CLEAR_pixeldata
 	movlw	.60
 	movwf	pixelcount
 loop4	call	send_blank
-	;decfsz	numLEDs
 	decfsz	pixelcount
 	goto	loop4
 	return
@@ -478,7 +451,6 @@ GREEN_pixeldata
 	movlw	.60
 	movwf	pixelcount
 loop5	call	send_green
-	;decfsz	numLEDs
 	decfsz	pixelcount
 	goto	loop5
 	return
@@ -486,8 +458,6 @@ loop5	call	send_green
 ;--------------FRAME DELAY ROUTINES--------------------	
 
 frame_delay
-;	movlw	.8 ;commented to try multiplier
-;	movwf	delay2
 	movff	VariableDelay, delay2
 iter2	decfsz	delay2
 	goto	cont2
@@ -505,4 +475,5 @@ cont1	call	delay_256
 	goto	iter1
 	
 ;-------------END-------------
+
 	end
