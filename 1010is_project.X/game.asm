@@ -34,7 +34,7 @@ Game_setup
 	CLRF	P2_score
 	SETF	TRISJ		; configure PORT J for input  -  
 				; J1 = Button 1 FLAG, J2 = Button 2 FLAG
-	call	defaultDelay
+	call	slowDelay
 	call	CLEAR_pixeldata
 	call	resetstate1
 	return
@@ -93,6 +93,7 @@ racketloop_r
 	bra	in_racket_r	; if counter not reached, continue checking racket sites
 	return			; if counter reached, exit
 in_racket_r
+	movff	sitecheck, W
 	cpfseq	ball_POS
 	bra	no_ball_r
 	call	send_pink	; if ball at this site in racket, display pink
@@ -112,6 +113,7 @@ racketloop_l
 	bra	in_racket_l	; if counter not reached, continue checking racket sites
 	return			; if counter reached, exit
 in_racket_l
+	movff	sitecheck, W
 	cpfseq	ball_POS
 	bra	no_ball_l
 	call	send_pink	; if ball at this site in racket, display pink
@@ -285,10 +287,19 @@ leftracket_true
 	LFSR	FSR0, 0x100
 	movlw	.5
 	movwf	racketcount
+	movff	ball_POS, poscount
 lr_loop1
-	call	send_null
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_l_t	; send ball
+	call	send_blue
+	bra	check_fin_l_t
+ball_true_l_t
+	call	send_pink	
+check_fin_l_t  ; check if we have done all racket pixels
+	decf	poscount
 	decfsz	racketcount
-	bra	lr_loop1
+	goto	lr_loop1
 	return
 	
 leftracket_false
@@ -299,12 +310,12 @@ leftracket_false
 lr_loop2
 	movlw	.0
 	cpfsgt	poscount	; check if we are at ball pixel
-	bra	ball_true_l	; send ball
+	bra	ball_true_l_f	; send ball
 	call	send_blank
-	bra	check_fin_l
-ball_true_l
+	bra	check_fin_l_f
+ball_true_l_f
 	call	send_red	
-check_fin_l  ; check if we have done all racket pixels
+check_fin_l_f  ; check if we have done all racket pixels
 	decf	poscount
 	decfsz	racketcount
 	goto	lr_loop2
@@ -314,21 +325,23 @@ rightracket_true
 	LFSR	FSR0, 0x1A5
 	movlw	.5
 	movwf	racketcount
+	movff	ball_POS, poscount
+	movlw	.55
+	subwf	poscount, 1
 rr_loop1
-	call	send_null
+	movlw	.0
+	cpfsgt	poscount	; check if we are at ball pixel
+	bra	ball_true_r_t	; send ball
+	call	send_blue
+	bra	check_fin_r_t
+ball_true_r_t
+	call	send_pink	
+check_fin_r_t ; check if we have done all racket pixels
+	decf	poscount
 	decfsz	racketcount
-	bra	rr_loop1
+	goto	lr_loop1
 	return
-;	
-;rightracket_false
-;	LFSR	FSR0, 0x1A5
-;	movlw	.5
-;	movwf	racketcount
-;rr_loop2
-;	call	send_blank
-;	decfsz	racketcount
-;	bra	rr_loop2
-;	return	
+	
 	
 rightracket_false
 	LFSR	FSR0, 0x1A5
@@ -420,9 +433,9 @@ send_yellow
 send_pink
 	movlw	0x00 ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
-	movlw	0xFF;//+ 1 ;value of 50/255
+	movlw	0xF0;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
-	movlw	0xDC ;//+ 1 ;value of 50/255
+	movlw	0xFF ;//+ 1 ;value of 50/255
 	movwf	POSTINC0 ;//+1
 	return
 send_blank
@@ -451,8 +464,8 @@ send_white
 
 ;--------------------CLEAR PIXEL DATA------------------------------------
 CLEAR_pixeldata
-	LFSR	FSR0, 0x0F1
-	movlw	.71
+	LFSR	FSR0, 0x100
+	movlw	.60
 	movwf	pixelcount
 loop4	call	send_blank
 	;decfsz	numLEDs
@@ -461,8 +474,8 @@ loop4	call	send_blank
 	return
     
 GREEN_pixeldata
-	LFSR	FSR0, 0x0F1
-	movlw	.70
+	LFSR	FSR0, 0x100
+	movlw	.60
 	movwf	pixelcount
 loop5	call	send_green
 	;decfsz	numLEDs
