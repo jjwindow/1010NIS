@@ -48,7 +48,7 @@ resetstate1
 	
 	movlw	.0		; Ball starts at near end of gamezone
 	movwf	ball_POS
-	movlw	b'10000000'	; Lowest speed
+	movlw	b'10000000'	; Fixed position chnge between frames
 	movwf	ball_VEL
 	BSF	ball_DIR, 7	; Inital velocity left to right
 	return
@@ -62,7 +62,7 @@ resetstate2
 	
 	movlw	.59		; Ball starts at far end of gamezone
 	movwf	ball_POS
-	movlw	b'10000000'	; Lowest speed
+	movlw	b'10000000'	; Fixed position chnge between frames
 	movwf	ball_VEL
 	BCF	ball_DIR, 7	; Inital velocity right to left
 	return
@@ -81,6 +81,9 @@ Calculate_state
 	movwf	movecount	    ; initially set the movecount to zero
 	movff	ball_VEL, workingVEL
 Check_Magnitude
+	; Used when ball_VEL was altered instead of frame delay
+	; Still used in calculation but bal_VEL is always the 'lowest' it can be
+	; (b'10000000' in our encoding).
 	incf	movecount	    ; increment movecount
 	BTFSC	workingVEL, 7	    ; check current bit of velocity
 	bra	Check_Direction	    ; if NOT CLEAR (i.e. the 1 has been found) - 
@@ -180,27 +183,28 @@ DrawRightRacket
 	LFSR	FSR0, 0x1A5	; Registers for right of gamezone 
 	call	writeRACKET_r
 	return
-	
+;------------------------------RACKET STATES------------------------------------	
+;---------------RIGHT RACKET
 writeRACKET_r
-	movlw	.50		; on left, racket starts at site 50
+	movlw	.50		; At the right, racket starts at site 50
 	movwf	sitecheck
 racketloop_r
-	movlw	.55
+	movlw	.55		; Racket finishes at site 55
 	cpfseq	sitecheck	
 	bra	in_racket_r	; if counter not reached, continue checking racket sites
 	return			; if counter reached, exit
-in_racket_r
+in_racket_r		
 	movff	sitecheck, W
-	cpfseq	ball_POS
+	cpfseq	ball_POS	; check racket sites for ball position
 	bra	no_ball_r
-	call	send_pink	; if ball at this site in racket, display pink
+	call	send_purple	; if ball at this site in racket, display purple 
 	incf	sitecheck
 	bra	racketloop_r
 no_ball_r
-	call	send_blue	; if ball not at that site, pixel is blu
+	call	send_blue	; if ball not at that site, pixel is blue
 	incf	sitecheck
 	bra	racketloop_r
-	
+;----------------LEFT RACKET	
 writeRACKET_l
 	movlw	.0		; on left, racket starts at site 0
 	movwf	sitecheck
@@ -213,7 +217,7 @@ in_racket_l
 	movff	sitecheck, W
 	cpfseq	ball_POS
 	bra	no_ball_l
-	call	send_pink	; if ball at this site in racket, display pink
+	call	send_purple	; if ball at this site in racket, display purple
 	incf	sitecheck
 	bra	racketloop_l
 no_ball_l
@@ -224,8 +228,8 @@ no_ball_l
 ;----------------------------------CONDITION CASES FOR RACKET -------------------------------------	
 ;-------------------------DRAW RACKET (BUTTON PRESSED)
 rightracket_true
-	LFSR	FSR0, 0x1A5
-	movlw	.5
+	LFSR	FSR0, 0x1A5	; Starting register for racket
+	movlw	.5		; length of racket
 	movwf	racketcount
 	movff	ball_POS, poscount
 	movlw	.55
@@ -236,9 +240,9 @@ rr_loop1
 	bra	ball_true_r_t	; send ball
 	call	send_blue
 	bra	check_fin_r_t
-ball_true_r_t
-	call	send_pink	
-check_fin_r_t ; check if we have done all racket pixels
+ball_true_r_t			; racket pressed AND ball at this site
+	call	send_purple	
+check_fin_r_t			; check if we have done all racket pixels
 	decf	poscount
 	decfsz	racketcount
 	goto	lr_loop1
@@ -246,8 +250,8 @@ check_fin_r_t ; check if we have done all racket pixels
 		
 	
 leftracket_true
-	LFSR	FSR0, 0x100
-	movlw	.5
+	LFSR	FSR0, 0x100	; Starting register for racket
+	movlw	.5		; length of racket
 	movwf	racketcount
 	movff	ball_POS, poscount
 lr_loop1
@@ -256,9 +260,9 @@ lr_loop1
 	bra	ball_true_l_t	; send ball
 	call	send_blue
 	bra	check_fin_l_t
-ball_true_l_t
-	call	send_pink	
-check_fin_l_t  ; check if we have done all racket pixels
+ball_true_l_t			; racket pressed AND ball at this site
+	call	send_purple	
+check_fin_l_t			; check if we have done all racket pixels
 	decf	poscount
 	decfsz	racketcount
 	goto	lr_loop1
@@ -278,7 +282,7 @@ lr_loop2
 	bra	check_fin_l_f
 ball_true_l_f
 	call	send_red	
-check_fin_l_f  ; check if we have done all racket pixels
+check_fin_l_f			; check if we have done all racket pixels
 	decf	poscount
 	decfsz	racketcount
 	goto	lr_loop2
@@ -372,7 +376,7 @@ checks_END
 	
 
 ;------------------------------COLOUR CODES -------------------------------	
-send_red
+send_red		    ; Used for ball
 	movlw	0x00 
 	movwf	POSTINC0 
 	movlw	0xBC
@@ -380,7 +384,7 @@ send_red
 	movlw	0x00 
 	movwf	POSTINC0 
 	return
-send_blue
+send_blue		    ; Used for racket
 	movlw	0xFF 
 	movwf	POSTINC0 
 	movlw	0x00
@@ -388,7 +392,7 @@ send_blue
 	movlw	0xFB 
 	movwf	POSTINC0
 	return
-send_green
+send_green		    ; Used for reset animation
 	movlw	0xA1 
 	movwf	POSTINC0 
 	movlw	0x00
@@ -396,7 +400,7 @@ send_green
 	movlw	0x11 
 	movwf	POSTINC0 
 	return
-send_yellow
+send_yellow		    ; Used for goals
 	movlw	0xF0 
 	movwf	POSTINC0
 	movlw	0xFF
@@ -404,7 +408,7 @@ send_yellow
 	movlw	0x00 
 	movwf	POSTINC0
 	return
-send_pink
+send_purple		    ; Used for ball when inside racket
 	movlw	0x00 
 	movwf	POSTINC0 
 	movlw	0xB7
@@ -412,7 +416,7 @@ send_pink
 	movlw	0xFF 
 	movwf	POSTINC0 
 	return
-send_blank
+send_blank		    ; Erase pixel
 	movlw	0x00 
 	movwf	POSTINC0 
 	movlw	0x00
@@ -436,7 +440,7 @@ send_white
 	return	
 	
 
-;--------------------CLEAR PIXEL DATA------------------------------------
+;---------------------------CLEAR PIXEL DATA------------------------------------
 CLEAR_pixeldata
 	LFSR	FSR0, 0x100
 	movlw	.60
@@ -455,7 +459,7 @@ loop5	call	send_green
 	goto	loop5
 	return
 	
-;--------------FRAME DELAY ROUTINES--------------------	
+;------------------------FRAME DELAY ROUTINES-----------------------------------	
 
 frame_delay
 	movff	VariableDelay, delay2
@@ -474,6 +478,6 @@ iter1	decfsz	delay1
 cont1	call	delay_256
 	goto	iter1
 	
-;-------------END-------------
+;---------------------------------END-------------------------------------------
 
 	end
