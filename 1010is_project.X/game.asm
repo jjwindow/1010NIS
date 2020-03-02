@@ -225,7 +225,7 @@ no_ball_l
 	incf	sitecheck
 	bra	racketloop_l
 
-;----------------------------------CONDITION CASES FOR RACKET -------------------------------------	
+;----------------------------------CONDITION CASES FOR RACKET ------------------	
 ;-------------------------DRAW RACKET (BUTTON PRESSED)
 rightracket_true
 	LFSR	FSR0, 0x1A5	; Starting register for racket

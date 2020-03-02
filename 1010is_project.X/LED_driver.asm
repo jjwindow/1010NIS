@@ -1,6 +1,7 @@
 #include p18f87k22.inc
 
     global  LED_Setup, Output_GRB
+    extern  CLEAR_pixeldata
 
 acs1	udata_acs 0x10
 
@@ -15,84 +16,36 @@ loopcount	res 1
 	
 	
 LEDs	code
-    
+   
+;-------------------------------SETUP-------------------------------------------
 LED_Setup
-	clrf	TRISE ;// +1
-	clrf	PORTE ;// +1
-	clrf	TRISH ;// +1
-	clrf	PORTH ;// +1
-	bcf	PORTE, 0  ;//+1 ; READY PIN E0 FOR OUTPUT
+	clrf	TRISE 
+	bcf	PORTE, 0  ; READY PIN E0 FOR OUTPUT
 	call	CLEAR_pixeldata
-	;call	write_states
 	call	Output_GRB
-	goto $
 	return
 	
-write_states
-	LFSR	FSR0, 0x100
-	movlw	.35
-	movwf	loopcount
-loop3	call	send_red
-	call	send_blue
-	;decfsz	numLEDs
-	decfsz	loopcount
-	goto	loop3
-	return	
-send_red
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x3F;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	return
-send_blue
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x3F ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	return
-	
-	
-CLEAR_pixeldata
-	LFSR	FSR0, 0x100
-	movlw	.70
-	movwf	pixelcount
-loop4	call	send_blank
-	;decfsz	numLEDs
-	decfsz	pixelcount
-	goto	loop4
-	return
-send_blank
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	movlw	0x00 ;//+ 1 ;value of 50/255
-	movwf	POSTINC0 ;//+1
-	return
+;---------------------------WRITE STATES TO LEDs--------------------------------
 
 Output_GRB
 	LFSR	FSR0, 0x100
-	movlw	.210 ;// RESET BYTE COUNT
+	movlw	.210		; RESET BYTE COUNT (70px * 3 bytes)
 	movwf	bytecount
-	bcf	INTCON,GIE ;// +1 ;disable interrupts 
+	bcf	INTCON,GIE	;disable interrupts for continuous transmission 
 loop1	
 	movff	POSTINC0, Wbyte
 	call	send_byte
 	decfsz	bytecount, 1
 	bra	loop1
-	call	delay_rst  ;// +2 ; refresh flag
-	bsf	INTCON,GIE ;// +1 ; (*) re-enable interrupts
+	call	delay_rst	; refresh signal (50 microsec delay)
+	bsf	INTCON,GIE	; re-enable interrupts
 	return
 send_byte
 	movlw	.8
-	movwf	bitcount ;reset bit counter
+	movwf	bitcount	; reset bit counter
 loop5
 	banksel Wbyte
-	BTFSC	Wbyte, 7 ; check MSB of working byte
+	BTFSC	Wbyte, 7	; check MSB of working byte
 	bra	no_skip		; if 1 - send 1
 	call	Send_0		; if 0 - send 0
 	bra	skip
@@ -100,11 +53,12 @@ no_skip	call	Send_1
 skip	RLNCF	Wbyte, F	; then rotate the working byte (load next bit)
 	movff	Wbyte, PORTH
 	decfsz	bitcount, 1, 0	; decrement bit counter
-	goto	loop5	; if bit counter is not zero then loop
+	goto	loop5		; if bit counter is not zero then loop
 	return
 Send_1
 	; 0.8us HI, 0.45us LO 
 	; 20 instructions TOTAL (after bsf)
+	; TESTED WITH OSCILLOSCOPE - TIMINGS NOT ACCURATE
 	bsf	PORTE, 0
 	call	delay_.8    ; 12 instruction delay		    
 	bcf	PORTE, 0    ; 12 instructions -> 13 instructions, lo pulse sent
@@ -122,41 +76,8 @@ Send_0
 	call	delay_.85	    ; End hi
 	return
 	
-	
 
-;send_pixel
-;	movlw	.24	   ;// +1 ; reset bit counter
-;	movwf	bitcount   ;// +1
-;loop2	btfsc	_PIXELDATA+0, 7 ; check MSB of working byte
-;	bra	no_skip		; if 1 - send 1
-;	call	Send_0		; if 0 - send 0
-;	bra	skip
-;no_skip	call	Send_1
-;skip	; then rotate the working byte (load next bit)
-;	bcf	STATUS, C
-;	rlcf	_PIXELDATA+0 
-;	rlcf	_PIXELDATA+1
-;	rlcf	_PIXELDATA+2 
-;	decfsz	bitcount	; decrement bit counter
-;	goto	loop2	; if bit counter is not zero then loop
-;	return   ;// + 2 ; send byte
-
-		
-;send_byte	
-;	btfsc	_byte, 7 ; check MSB of working byte
-;	bra	no_skip		; if 1 - send 1
-;	call	Send_0		; if 0 - send 0
-;	bra	skip
-;no_skip	call	Send_1
-;skip	rlncf	_byte, 1	; then rotate the working byte (load next bit)
-;	decfsz	bitcount	; decrement bit counter
-;	goto	send_byte	; if bit counter is not zero then loop
-;	return
-
-	
-	
-	
-;//DELAY ROUTINES
+;-----------------------------------DELAYS--------------------------------------
 delay_.4
 	NOP		; 6 instruction delay
 	NOP		; req'd delay/time per instruction = 400ns/62.5ns 
@@ -190,7 +111,7 @@ delay_rst
 	return
 	
 	
-;//END
+;---------------------------------END-------------------------------------------
  end
 
 

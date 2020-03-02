@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=main.asm LED_driver.asm
+SOURCEFILES_QUOTED_IF_SPACED=main.asm LED_driver.asm game.asm
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.o ${OBJECTDIR}/LED_driver.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/main.o.d ${OBJECTDIR}/LED_driver.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main.o ${OBJECTDIR}/LED_driver.o ${OBJECTDIR}/game.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/main.o.d ${OBJECTDIR}/LED_driver.o.d ${OBJECTDIR}/game.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/main.o ${OBJECTDIR}/LED_driver.o
+OBJECTFILES=${OBJECTDIR}/main.o ${OBJECTDIR}/LED_driver.o ${OBJECTDIR}/game.o
 
 # Source Files
-SOURCEFILES=main.asm LED_driver.asm
+SOURCEFILES=main.asm LED_driver.asm game.asm
 
 
 CFLAGS=
@@ -110,6 +110,14 @@ ${OBJECTDIR}/LED_driver.o: LED_driver.asm  nbproject/Makefile-${CND_CONF}.mk
 	@${DEP_GEN} -d "${OBJECTDIR}/LED_driver.o"
 	@${FIXDEPS} "${OBJECTDIR}/LED_driver.o.d" $(SILENT) -rsi ${MP_AS_DIR} -c18 
 	
+${OBJECTDIR}/game.o: game.asm  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/game.o.d 
+	@${RM} ${OBJECTDIR}/game.o 
+	@${FIXDEPS} dummy.d -e "${OBJECTDIR}/game.err" $(SILENT) -c ${MP_AS} $(MP_EXTRA_AS_PRE) -d__DEBUG -d__MPLAB_DEBUGGER_ICD3=1 -q -p$(MP_PROCESSOR_OPTION)  -l\"${OBJECTDIR}/game.lst\" -e\"${OBJECTDIR}/game.err\" $(ASM_OPTIONS)    -o\"${OBJECTDIR}/game.o\" \"game.asm\" 
+	@${DEP_GEN} -d "${OBJECTDIR}/game.o"
+	@${FIXDEPS} "${OBJECTDIR}/game.o.d" $(SILENT) -rsi ${MP_AS_DIR} -c18 
+	
 else
 ${OBJECTDIR}/main.o: main.asm  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
@@ -126,6 +134,14 @@ ${OBJECTDIR}/LED_driver.o: LED_driver.asm  nbproject/Makefile-${CND_CONF}.mk
 	@${FIXDEPS} dummy.d -e "${OBJECTDIR}/LED_driver.err" $(SILENT) -c ${MP_AS} $(MP_EXTRA_AS_PRE) -q -p$(MP_PROCESSOR_OPTION)  -l\"${OBJECTDIR}/LED_driver.lst\" -e\"${OBJECTDIR}/LED_driver.err\" $(ASM_OPTIONS)    -o\"${OBJECTDIR}/LED_driver.o\" \"LED_driver.asm\" 
 	@${DEP_GEN} -d "${OBJECTDIR}/LED_driver.o"
 	@${FIXDEPS} "${OBJECTDIR}/LED_driver.o.d" $(SILENT) -rsi ${MP_AS_DIR} -c18 
+	
+${OBJECTDIR}/game.o: game.asm  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}" 
+	@${RM} ${OBJECTDIR}/game.o.d 
+	@${RM} ${OBJECTDIR}/game.o 
+	@${FIXDEPS} dummy.d -e "${OBJECTDIR}/game.err" $(SILENT) -c ${MP_AS} $(MP_EXTRA_AS_PRE) -q -p$(MP_PROCESSOR_OPTION)  -l\"${OBJECTDIR}/game.lst\" -e\"${OBJECTDIR}/game.err\" $(ASM_OPTIONS)    -o\"${OBJECTDIR}/game.o\" \"game.asm\" 
+	@${DEP_GEN} -d "${OBJECTDIR}/game.o"
+	@${FIXDEPS} "${OBJECTDIR}/game.o.d" $(SILENT) -rsi ${MP_AS_DIR} -c18 
 	
 endif
 

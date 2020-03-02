@@ -15,30 +15,34 @@ loopcount res 1
 main	code
 ;--------------------MAIN------------------------	
 	
-start	call	LED_Setup		; Sit in infinite loop
+start	call	LED_Setup	    ; Initialisation
 	call	Game_setup
-gameloop
-	call	Calculate_state
-	btfss	PORTJ, 1
-	BRA	P1_nopress
-	call	leftracket_true
+gameloop			    ; Infinite game loop
+				    ; Writes racket states to registers, then
+				    ; writes gamezone state.
+	call	Calculate_state	    ; New ball position + racket and goal checks
+	btfss	PORTJ, 1	    ; Check for user input
+	BRA	P1_nopress	    
+	call	leftracket_true	    ; Button 1 pressed
 	BRA	output
-P1_nopress
+P1_nopress			    ; Button 1 not pressed
 	call	leftracket_false
-	btfss	PORTJ, 2
+	btfss	PORTJ, 2	    ; Test button 2
 	bra	P2_nopress
-	call	rightracket_true
+	call	rightracket_true    ; Button 2 pressed
 	bra	output
-P2_nopress
+P2_nopress			    ; Button 2 not pressed
 	call	rightracket_false
 	bra	output
-output
-	call	Write_state
-	call	Output_GRB
-	call	frame_delay
-	goto	gameloop
+output				    
+	call	Write_state	    ; Write gamezone state
+	call	Output_GRB	    ; Push to LEDs
+	call	frame_delay	    ; Wait for next fram - delay length depends
+				    ; on variableDelay value
+	goto	gameloop	    
 	
-reset_animation
+reset_animation			    ; Called when a goal is scored, flashes 
+				    ; central 60 LEDs green and blank.
 	movlw	.6
 	movwf	loopcount
 loop1	call	CLEAR_pixeldata ; OUTPUT CLEAN
